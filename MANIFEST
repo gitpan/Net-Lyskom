@@ -2,6 +2,7 @@ Lyskom.pm
 Makefile.PL
 MANIFEST
 README
+Changes
 test.pl
 Examples/gunther.pl
 Lyskom/MiscInfo.pm
@@ -20,3 +21,4 @@ Lyskom/StaticSession.pm
 Lyskom/Member.pm
 Lyskom/Info.pm
 Lyskom/Simple.pm
+META.yml                                Module meta-data (added by MakeMaker)
