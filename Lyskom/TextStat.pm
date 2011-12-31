@@ -7,6 +7,7 @@ use Net::Lyskom::Util qw{:all};
 use Net::Lyskom::MiscInfo;
 use Net::Lyskom::AuxItem;
 use Carp;
+use Encode;
 
 =head1 NAME
 
@@ -65,6 +66,12 @@ both the subject and body internally. Both this method and the
 following one always fetch the entire text. If you want something
 else, call get_text() yourself.
 
+If the fetched text has a content-type AuxItem, and the running Perl
+instance knows how to convert from that encoding, the subject will be
+decoded into Perl's internal representation before being returned. If
+there is no declared content type or the running Perl can't deal with
+it, the content will be left untouched.
+
 =item ->body()
 
 As above, but return the body instead of the subject.
@@ -117,18 +124,35 @@ sub aux_items {
     return @{$s->{aux_item}};
 }
 
+sub _fetch_subject_and_body {
+    my $s = shift;
+
+    my $raw = $s->{connection}->get_text(text => $s->{textno}) or croak;
+
+    my ($ct) = grep {$_->tag == 1} $s->aux_items;
+    if ($ct) {
+        my ($charset) = $ct->data =~ m|charset=([^;]+);?|i;
+        if ($charset) {
+            eval {
+                $raw = decode($charset, $raw);
+            };
+        }
+    }
+
+    my ($subj, $body) = split(/\n/, $raw, 2);
+    $s->{subject} = $subj;
+    $s->{body} = $body;
+}
+
 sub subject {
     my $s = shift;
 
     return $s->{subject} if exists($s->{subject});
     return undef unless $s->{connection} && $s->{textno};
 
-    my $raw = $s->{connection}->get_text(text => $s->{textno}) or croak;
-    my ($subj, $body) = split(/\n/, $raw, 2);
-    $s->{subject} = $subj;
-    $s->{body} = $body;
+    $s->_fetch_subject_and_body();
 
-    return $subj;
+    return $s->{subject};
 }
 
 sub body {
@@ -137,12 +161,9 @@ sub body {
     return $s->{body} if exists($s->{body});
     return undef unless $s->{connection} && $s->{textno};
 
-    my $raw = $s->{connection}->get_text($s->{textno}) or croak;
-    my ($subj, $body) = split(/\n/, $raw, 2);
-    $s->{subject} = $subj;
-    $s->{body} = $body;
+    $s->_fetch_subject_and_body();
 
-    return $body;
+    return $s->{body};
 }
 
 sub new_from_stream {
